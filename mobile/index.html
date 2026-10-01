@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>无人机法规监控</title>
+<style>
+:root{--bg:var(--canvas,#0A0B0D);--surface:var(--surface-c,#111316);
+--raised:var(--raised-c,#181A1F);--line:var(--line-c,#2A2E35);
+--t1:var(--text,#E9ECF1);--t2:var(--text-2,#A2AAB6);--t3:var(--text-3,#6F7885);
+--accent:var(--accent-c,#ABEBC7);--accent-dim:var(--focus,#5AA2F0);
+--must:var(--must-c,#FF6B6B);--watch:var(--watch-c,#FFB224);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t1);font:11.5px/1.42 "Microsoft YaHei",system-ui,sans-serif;}
+html,body{height:100%;overflow:hidden}
+/* 主页占满全宽 —— 侧边栏是独立悬浮图层，不参与排版 */
+#main{position:absolute;inset:0;overflow-y:auto;padding:0 8px 36px 56px;}
+/* 侧边栏：固定悬浮层，带投影，默认图标条 56px，展开 180px 盖在内容上 */
+#side{position:fixed;left:0;top:0;bottom:0;width:48px;z-index:50;
+  background:var(--surface);border-right:1px solid var(--line);
+  box-shadow:2px 0 14px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;transition:width .18s ease;}
+#side.open{width:150px}
+#collapse{padding:9px 0;color:var(--t3);cursor:pointer;text-align:center;flex-shrink:0;
+  border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+#collapse svg{width:17px;height:17px;display:block;fill:none;stroke:currentColor;
+  stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 0 9px 12px;cursor:pointer;
+  color:var(--t3);border-left:2px solid transparent;user-select:none;white-space:nowrap;
+  transition:color .15s,border-color .15s}
+.nav-btn .ico{width:20px;height:20px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.nav-btn .ico svg{width:18px;height:18px;display:block;fill:none;stroke:currentColor;
+  stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn .txt{font-size:12px;opacity:0;width:0;overflow:hidden;transition:opacity .12s}
+#side.open .txt{opacity:1;width:auto}
+.nav-btn.on{color:var(--accent);border-left-color:var(--accent)}
+.nav-btn:active{color:var(--accent)}
+/* 重大/近期/更早 锚点导航 —— 吸顶常驻 */
+#anchor{position:sticky;top:0;z-index:20;display:none;gap:6px;
+  background:var(--bg);padding:6px 0 6px;margin:0;}
+#anchor.show{display:flex}
+/* 简约风：无边框无底色的纯文字按钮，选中只改文字颜色 */
+.anch{background:none;border:0;color:var(--t3);padding:2px 2px;font-size:10.5px;
+  cursor:pointer;flex-shrink:0;font-family:inherit}
+.anch.on{color:var(--accent);font-weight:700}
+.anch:active{color:var(--accent)}
+/* 通用按钮：去掉所有框选/高亮块 */
+button{font-family:inherit}
+button.anch,button.ghost{background:none;border:0;color:var(--t3);font-size:10.5px;
+  padding:2px 4px;cursor:pointer}
+button.anch:active,button.ghost:active{color:var(--accent)}
+select{background:none;border:0;color:var(--t1);font-size:11px;font-family:inherit;
+  padding:1px 2px;max-width:100%;appearance:none;-webkit-appearance:none}
+select option{background:var(--raised);color:var(--t1)}
+select.sel{border-bottom:1px solid var(--line);padding:2px 14px 2px 2px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--t3) 50%),
+  linear-gradient(135deg,var(--t3) 50%,transparent 50%);
+  background-position:calc(100% - 8px) 55%,calc(100% - 4px) 55%;
+  background-size:4px 4px,4px 4px;background-repeat:no-repeat}
+input[type=text],input:not([type]){background:none;border:0;border-bottom:1px solid var(--line);
+  color:var(--t1);font-size:11px;font-family:inherit;padding:2px 2px}
+input:focus,select:focus{outline:none;border-bottom-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px}
+.kpi-row{display:flex;gap:6px;margin-bottom:6px}
+.today-bar{display:flex;align-items:center;gap:12px;background:none;
+  border:0;border-bottom:1px solid var(--line);border-radius:0;padding:2px 2px 6px;margin-bottom:6px}
+.today-bar b{color:var(--accent);font-size:12px}
+.today-bar span{font-size:11px;color:var(--t3)}
+.mverdict{display:flex;align-items:center;gap:12px;border-radius:10px;
+padding:12px 14px;margin-bottom:10px;border:1px solid var(--line);background:var(--surface)}
+.mverdict .v-main{font-size:13px;font-weight:700}
+.mverdict .v-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.mverdict.v-no{border-left:4px solid var(--must)} .mverdict.v-no .v-main{color:var(--must)}
+.mverdict.v-warn{border-left:4px solid var(--watch)} .mverdict.v-warn .v-main{color:var(--watch)}
+.mverdict.v-ok{border-left:4px solid var(--local)} .mverdict.v-ok .v-main{color:var(--local)}
+.msec{font-size:11.5px;margin:12px 0 6px;color:var(--t1);border-bottom:1px solid var(--line);padding-bottom:4px}
+.mcard{background:var(--surface);border:1px solid var(--line);border-radius:8px;
+padding:8px 10px;margin-bottom:6px}
+.mcard .mt{font-size:11.5px;color:var(--t1);line-height:1.45}
+.mcard .mm{font-size:10.5px;color:var(--t3);margin-top:3px}
+.mcard .mh{font-size:11.5px;color:var(--t2);margin-top:4px;line-height:1.4}
+.mcard .ml{display:inline-block;margin-top:5px;font-size:11px;color:var(--accent);text-decoration:none}
+.kpi-row{display:flex;gap:6px;margin-bottom:6px}
+.kpi b{font-size:12px;color:var(--accent);display:block;line-height:1.25}
+.kpi span{font-size:10px;color:var(--t3)}
+.wx{background:var(--surface);border:1px solid var(--line);border-radius:8px;
+  padding:7px 11px;margin-bottom:8px;font-size:12px;color:var(--t2);white-space:pre-wrap}
+.grp{margin:8px 0 5px;font-size:11px;font-weight:700;color:var(--t3)}
+/* 卡片压扁：小内边距、紧行距 */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:7px;
+  padding:5px 8px;margin-bottom:4px}
+.card.major{border-left:3px solid var(--must)}
+.card.mid{border-left:3px solid var(--watch)}
+.badge{display:inline-block;font-size:9px;border-radius:4px;padding:0 6px;
+  line-height:16px;margin-right:4px;vertical-align:middle;font-weight:700}
+.badge.b-major{background:var(--must);color:#10151F}
+.badge.b-mid{background:var(--watch);color:#10151F}
+.badge.b-low{background:var(--raised);color:var(--t3)}
+.card h4{font-size:11.5px;line-height:1.35;margin:1px 0 2px;font-weight:600}
+.tag{display:inline-block;font-size:9px;color:var(--t3);background:var(--raised);
+  border-radius:4px;padding:0 6px;margin-right:4px;line-height:16px;vertical-align:middle}
+.sum{font-size:11px;color:var(--t2);line-height:1.4}
+.row2{display:flex;justify-content:space-between;align-items:center;margin-top:3px}
+.src{font-size:10px;color:var(--t3)}
+.act{display:flex;gap:5px}
+.act button{background:none;border:0;color:var(--t3);padding:0 3px;font-size:10px;
+  cursor:pointer;line-height:17px}
+.act button:active{color:var(--accent)}
+.act button.star{color:var(--accent)}
+#loading{text-align:center;color:var(--t3);padding:24px;font-size:11px}
+/* 空态：把提示大字嵌进背景，不当成内容块 */
+.empty{position:relative;height:56vh;display:flex;align-items:center;justify-content:center}
+.empty .wm{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:46px;font-weight:700;letter-spacing:6px;color:var(--t3);opacity:.10;
+  white-space:nowrap;user-select:none;pointer-events:none}
+.empty .tip{position:relative;font-size:11px;color:var(--t3);opacity:.75;text-align:center;line-height:1.8}
+a{color:var(--accent-dim);text-decoration:none}
+/* 设置页：浮岛 —— 圆角面板浮在背景上，靠留白分组，不用硬分割线 */
+.isl{background:var(--surface);border-radius:15px;padding:12px 15px 13px;
+  margin:0 3px 15px;box-shadow:0 3px 9px rgba(0,0,0,.24),0 1px 0 rgba(255,255,255,.035) inset}
+.isl .t{font-size:9.5px;color:var(--t3);letter-spacing:1.4px;margin:0 0 4px;opacity:.85}
+.isl-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:9px 1px}
+.isl-row .k{font-size:11px;color:var(--t2);flex-shrink:0}
+.isl-row .hint{font-size:10px;color:var(--t3);opacity:.7}
+.isl-row select{flex:1;text-align:right}
+.isl-row input{text-align:right}
+.anch.scheme{opacity:.55;transition:opacity .15s}
+.anch.scheme.on{opacity:1;font-weight:700}
+</style>
+<link id="themecss" rel="stylesheet" href="/api/theme.css">
+</head><body>
+<div id="side">
+  <div id="collapse" onclick="toggleSide()"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/></svg></div>
+  <div class="nav-btn on" data-p="today" onclick="go(this)"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></span><span class="txt">今日情报</span></div>
+  <div class="nav-btn" data-p="morning" onclick="go(this)"><span class="ico"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span><span class="txt">晨报</span></div>
+  <div class="nav-btn" data-p="fav" onclick="go(this)"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></svg></span><span class="txt">收藏</span></div>
+  <div class="nav-btn" data-p="filtered" onclick="go(this)"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></span><span class="txt">已过滤</span></div>
+  <div style="flex:1"></div>
+  <div class="nav-btn" data-p="settings" onclick="go(this)"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span class="txt">设置</span></div>
+</div>
+<div id="settings-src" style="display:none">
+  <div class="grp" style="margin:4px 0 10px">设置</div>
+  <div class="isl">
+    <div class="t">地区</div>
+    <div class="isl-row"><span class="k">省份</span><select id="set-prov" class="sel" onchange="onProvChange()"></select></div>
+    <div class="isl-row"><span class="k">城市</span><select id="set-city" class="sel" onchange="saveSettings()"></select></div>
+  </div>
+  <div class="isl">
+    <div class="t">内容</div>
+    <div class="isl-row"><span class="k">保留全国性法规</span><input type="checkbox" id="set-nat" onchange="saveSettings()"></div>
+    <div class="isl-row"><span class="k">显示商业资讯</span><input type="checkbox" id="set-ind" onchange="saveSettings()"></div>
+  </div>
+  <div class="isl">
+    <div class="t">搜索与模型</div>
+    <div class="isl-row"><span class="k">每日搜索时间</span><input id="set-time" placeholder="07:30" onchange="saveSettings()"></div>
+    <div class="isl-row"><span class="k">分析模型</span><select id="set-model" class="sel" onchange="saveSettings()"></select></div>
+  </div>
+  <div class="isl">
+    <div class="t">外观</div>
+    <div class="isl-row"><span class="k">主题</span><span style="display:flex;gap:10px">
+      <button class="anch" id="th-dark" onclick="setTheme('dark')">深色</button>
+      <button class="anch" id="th-light" onclick="setTheme('light')">浅色</button></span></div>
+    <div id="scheme-grid" style="display:flex;flex-wrap:wrap;gap:9px;margin:10px 2px 4px"></div>
+  </div>
+  <div class="isl">
+    <div class="t">我的设备</div>
+    <div id="set-devices" style="font-size:11px;color:var(--t2);line-height:1.8;padding:2px 2px"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+      <input id="dev-brand" placeholder="品牌" style="width:62px">
+      <input id="dev-model" placeholder="型号" style="width:84px">
+      <input id="dev-grams" placeholder="克重" style="width:46px">
+      <button class="anch" onclick="addDevice()">+ 添加</button>
+    </div>
+  </div>
+  <div id="set-msg" style="font-size:10.5px;color:var(--t3);margin:14px 4px 34px"></div>
+</div>
+<div id="main">
+  <div id="anchor">
+    <span class="anch on" data-g="major" onclick="jump(this)">🚨 重大</span>
+    <span class="anch" data-g="watch" onclick="jump(this)">⚠️ 近期需注意</span>
+    <span class="anch" data-g="older" onclick="jump(this)">📚 更早</span>
+  </div>
+  <div id="loading">加载中…</div>
+</div>
+<script>
+window.onerror = function(msg, src, line, col){
+  try { fetch("/api/jslog", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({m: msg + " @" + line + ":" + col})}); } catch(e){}
+};
+let sideOpen = false;
+// anchor HTML snapshot - #main is replaced wholesale so the live element can vanish
+var ANCHOR_HTML = (document.getElementById("anchor") || {}).outerHTML || "";
+// 设置模板只取一次，然后从 DOM 里摘掉 —— 否则 id 重名，getElementById 会拿到隐藏的那份
+var SETTINGS_TPL = "";
+(function(){
+  var src = document.getElementById("settings-src");
+  if (src) { SETTINGS_TPL = src.innerHTML; src.parentNode.removeChild(src); }
+})();
+function toggleSide(){ sideOpen = !sideOpen; document.getElementById("side").classList.toggle("open", sideOpen); }
+function jump(el){
+  document.querySelectorAll(".anch").forEach(function(b){b.classList.remove("on");});
+  el.classList.add("on");
+  var key = el.dataset.g;
+  var g = document.getElementById("grp-" + key);
+  if (!g && key === "watch-mid") g = document.getElementById("grp-watch-low");
+  if (!g && key.indexOf("watch") === 0) {
+    var all = document.querySelectorAll("[id^='grp-watch']");
+    g = all.length ? all[0] : null;
+  }
+  trace("jump " + key + " -> " + (g ? g.id : "none"));
+  if (g) g.scrollIntoView({behavior:"smooth", block:"start"});
+}
+function go(el){
+  document.querySelectorAll(".nav-btn").forEach(function(b){b.classList.remove("on");});
+  el.classList.add("on");
+  var p = el.dataset.p;
+  var _a = document.getElementById("anchor");
+  if (_a) _a.classList.toggle("show", p === "today");
+  if (p === "morning") { loadMorning(); }
+  else if (p === "settings") { loadSettings(); }
+  else { loadItems(p); }
+  if (sideOpen) toggleSide();
+}
+function esc(s){ var d=document.createElement("div"); d.textContent=s||""; return d.innerHTML; }
+var APP_VER = "r8-minimal";
+function trace(msg){ try{ fetch("/api/jslog",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({m:"TRACE "+msg})}); }catch(e){} }
+async function loadWeather(){
+  try{
+    var w = await (await fetch("/api/weather")).json();
+    if (!w.lines || !w.lines.length) return;
+    var el = document.createElement("div"); el.className="wx";
+    el.textContent = "🌦 " + w.lines.join("\n");
+    var m = document.getElementById("main");
+    var anchor = document.getElementById("anchor");
+    if (!anchor) return;
+    m.insertBefore(el, anchor.nextSibling);
+  }catch(e){}
+}
+async function loadItems(page){
+  var m = document.getElementById("main");
+  m.innerHTML = ANCHOR_HTML + "<div id='loading'>加载中…</div>";
+  var st = await (await fetch("/api/stats")).json();
+  var data = await (await fetch("/api/items?page=" + page)).json();
+  var today = (page === "today");
+  var h = "";
+  if (!today) {
+    h = '<div class="kpi-row"><div class="kpi"><b>'+st.today_new+'</b><span>今日新增</span></div>' +
+      '<div class="kpi"><b>'+st.local+'</b><span>本地相关</span></div>' +
+      '<div class="kpi"><b>'+st.total+'</b><span>累计收录</span></div></div>';
+  } else {
+    // 主页最上方：今日补充 / 总计 模块
+    h = '<div class="today-bar"><span>今日补充</span><b>'+st.today_new+'</b>' +
+        '<span>总计收录</span><b>'+st.total+'</b>' +
+        '<span style="margin-left:auto">本地相关 '+st.local+'</span></div>';
+  }
+  m.innerHTML = ANCHOR_HTML + h;
+  if (today) { var _al = document.getElementById("anchor"); if (_al) _al.classList.add("show"); }
+  loadWeather();
+  var any = false;
+  for (var gi=0; gi<data.groups.length; gi++){
+    var g = data.groups[gi];
+    if (!g.rows.length) continue;
+    var gh = document.createElement("div");
+    gh.className = "grp";
+    if (today) gh.id = "grp-" + g.key;
+    gh.textContent = g.title + " · " + g.rows.length + " 条";
+    m.appendChild(gh);
+    for (var i=0; i<g.rows.length; i++){
+      any = true;
+      var r = g.rows[i];
+      var c = document.createElement("div");
+      var lv = r.importance===3 ? "major" : (r.importance===2 ? "mid" : "low");
+      var bl = r.importance===3 ? "b-major" : (r.importance===2 ? "b-mid" : "b-low");
+      var bt = r.importance===3 ? "重大" : (r.importance===2 ? "重要" : "普通");
+      c.className = "card " + lv;
+      var meta = "<span class='badge " + bl + "'>" + bt + "</span>" +
+        esc(r.category||"其他") + " · " + esc((r.published_at||r.first_seen||"").slice(5,10));
+      c.innerHTML =
+        "<h4 onclick=\"toggleSum(this)\">"+esc(r.title)+"</h4>" +
+        (r.ai_summary ? "<div class='sum' style='display:none'>"+esc(r.ai_summary)+"</div>" : "") +
+        "<div class='row2'><span class='src'>"+meta+"</span>" +
+        "<div class='act'>" +
+        "<button class='star' onclick=\"fav('"+r.uid+"')\">"+(r.is_starred?"★":"☆")+"</button>" +
+        (r.url ? "<button onclick=\"openUrl('"+r.url+"')\">原文</button>" : "") +
+        "</div></div>";
+      m.appendChild(c);
+    }
+  }
+  if (!any) {
+    var msg = page === "fav" ? "这里没有哦" : (page === "filtered" ? "没有过滤掉的" : "暂时没有");
+    var tip = page === "fav" ? "点卡片右下角 ☆ 就能收藏" : "换个地区或稍后再看";
+    m.insertAdjacentHTML("beforeend",
+      "<div class='empty'><div class='wm'>" + msg + "</div><div class='tip'>" + tip + "</div></div>");
+    var wmn = m.querySelector(".empty .wm");
+    trace("empty " + page + " wm=" + (wmn ? wmn.textContent : "MISSING"));
+  }
+  trace("items " + page + " groups=" + data.groups.length + " cards=" + m.querySelectorAll(".card").length);
+}
+let morningFull = false;
+let _morningTimer = null;
+async function loadMorning(){
+  var m = document.getElementById("main");
+  var full = morningFull ? 1 : 0;
+  // 先问状态：就绪直接渲染；未就绪轮询，页面永不冻结
+  var st = await (await fetch("/api/morning/status?full=" + full)).json();
+  if (st.ready) { renderMorning(full); return; }
+  await fetch("/api/morning/prime", {method:"POST"});
+  m.innerHTML = "<div id='loading'>后台正在生成晨报…<br><span id='mgen' style='font-size:11px;color:var(--t3)'>已等待 0 秒</span><br><span style='font-size:11px;color:var(--t3)'>期间可以点其它页面，生成完自动就绪</span>" +
+    "<br><button class='anch' style='margin-top:10px' onclick='loadMorning()'>刷新看看</button></div>";
+  if (_morningTimer) clearInterval(_morningTimer);
+  var el = 0;
+  _morningTimer = setInterval(async function(){
+    el++;
+    var s2 = await (await fetch("/api/morning/status?full=" + full)).json();
+    var t = document.getElementById("mgen");
+    if (t && s2.elapsed) t.textContent = "已等待 " + s2.elapsed + " 秒";
+    if (s2.ready) { clearInterval(_morningTimer); _morningTimer = null; renderMorning(full); }
+  }, 2000);
+}
+async function renderMorning(){
+  var m = document.getElementById("main");
+  try{
+    var j = await (await fetch("/api/morning/text")).json();
+    if (!j.ready) { loadMorning(); return; }
+    var h = "";
+    var v = j.verdict || {};
+    if (v.main) {
+      var cls = v.main.indexOf("不能飞") >= 0 ? "v-no" : (v.main.indexOf("谨慎") >= 0 ? "v-warn" : "v-ok");
+      var ico = cls === "v-no" ? "⛔" : (cls === "v-warn" ? "⚠️" : "✅");
+      h += '<div class="mverdict '+cls+'"><div class="v-ico">'+ico+'</div><div><div class="v-main">'+esc(v.main)+'</div><div class="v-sub">'+esc(v.sub||"")+'</div></div></div>';
+    }
+    (j.sections||[]).forEach(function(sec){
+      h += "<h2 class='msec'>"+esc(sec.title)+"</h2>";
+      sec.items.forEach(function(it){
+        h += '<div class="mcard"><div class="mt">'+esc(it.title)+'</div>';
+        if (it.meta) h += '<div class="mm">'+esc(it.meta)+'</div>';
+        if (it.hint) h += '<div class="mh">'+esc(it.hint)+'</div>';
+        if (it.url) h += '<a class="ml" href="'+esc(it.url)+'">查看原文 →</a>';
+        h += "</div>";
+      });
+    });
+    if (!h) h = "<div id='loading'>晨报暂无内容</div>";
+    m.innerHTML = h;
+    trace("morning sections=" + (j.sections||[]).length + " cards=" + m.querySelectorAll(".mcard").length + " verdict=" + ((j.verdict||{}).main||"-"));
+  }catch(e){
+    try { fetch("/api/jslog", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({m: "renderMorning: " + e})}); } catch(e2){}
+    m.innerHTML = "<div id='loading'>晨报加载失败</div>";
+  }
+}
+async function fav(uid){ await fetch("/api/fav",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid})}); go(document.querySelector(".nav-btn.on")); }
+async function ig(uid){ await fetch("/api/ignore",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({uid:uid})}); go(document.querySelector(".nav-btn.on")); }
+function openUrl(u){
+  // 跳系统浏览器 —— WebView 内不开外链
+  var a = document.createElement("a");
+  a.href = u; a.target = "_blank"; a.rel = "noopener";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function toggleSum(h){ var s = h.nextElementSibling; if (s && s.className === "sum") s.style.display = (s.style.display === "none") ? "block" : "none"; }
+let _modelsAvail = [];
+var _regions = {provinces: [], cities: {}};
+function fillCities(prov, city){
+  var list = (_regions.cities || {})[prov] || [];
+  var csel = document.getElementById("set-city");
+  if (!csel) return;
+  var opts = list.slice();
+  // 存量城市可能写作「深圳」，列表是「深圳市」—— 前缀匹配后选中，匹配不到才补一项
+  if (city && opts.indexOf(city) < 0) {
+    var hit = null;
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].indexOf(city) === 0 || city.indexOf(opts[i].replace(/[市省]$/, "")) === 0) { hit = opts[i]; break; }
+    }
+    if (hit) city = hit; else opts.unshift(city);
+  }
+  csel.innerHTML = opts.map(function(c){
+    return "<option" + (c === city ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("");
+}
+function onProvChange(){
+  var prov = document.getElementById("set-prov").value;
+  fillCities(prov, "");
+  saveSettings();
+}
+async function loadSettings(){
+  var m = document.getElementById("main");
+  m.innerHTML = SETTINGS_TPL;
+  loadThemeUI();
+  var s = await (await fetch("/api/settings")).json();
+  var rg = await (await fetch("/api/regions")).json();
+  _regions = rg;
+  var psel = document.getElementById("set-prov");
+  var provs = rg.provinces || [];
+  var cur = s.province || "";
+  // 存量可能是「广东」，列表是「广东省」—— 前缀匹配后再选中
+  if (cur && provs.indexOf(cur) < 0) {
+    for (var pi = 0; pi < provs.length; pi++) {
+      if (provs[pi].indexOf(cur) === 0 || cur.indexOf(provs[pi].replace(/[省市区]$/, "")) === 0) { cur = provs[pi]; break; }
+    }
+  }
+  psel.innerHTML = provs.map(function(p){
+    return "<option" + (p === cur ? " selected" : "") + ">" + esc(p) + "</option>"; }).join("");
+  fillCities(cur, s.city);
+  document.getElementById("set-nat").checked = !!s.keep_national;
+  document.getElementById("set-ind").checked = !!s.show_industry;
+  document.getElementById("set-time").value = s.daily_time || "07:30";
+  _modelsAvail = s.models_avail || [];
+  var sel = document.getElementById("set-model");
+  var opts = (_modelsAvail.length ? _modelsAvail.slice(0,12) : [s.model || "qwen3.5:0.8b"]);
+  if (s.model && opts.indexOf(s.model) < 0) opts.unshift(s.model);
+  sel.innerHTML = opts.map(function(m2){ return "<option" + (m2===s.model?" selected":"") + ">" + esc(m2) + "</option>"; }).join("");
+  var d = document.getElementById("set-devices");
+  d.innerHTML = (s.devices||[]).length
+    ? s.devices.map(function(x, i){ return "<div style='display:flex;justify-content:space-between;margin-bottom:3px'><span>"+esc(x.brand+" "+x.model)+(x.level?" · <b style='color:var(--accent)'>"+esc(x.level)+"</b>":"")+(x.weight_range?" <span style='color:var(--t3)'>("+esc(x.weight_range)+")</span>":"")+"</span><span><button class='anch' style='padding:0 8px' onclick='delDevice("+i+")'>删</button></span></div>"; }).join("")
+    : "未设置";
+  trace("settings devices=" + ((s.devices || []).length) + " models=" + opts.length +
+    " provs=" + psel.options.length + " cities=" + document.getElementById("set-city").options.length +
+    " city=" + document.getElementById("set-city").value);
+}
+async function saveSettings(){
+  var body = {
+    city: document.getElementById("set-city").value.trim(),
+    province: document.getElementById("set-prov").value.trim(),
+    keep_national: document.getElementById("set-nat").checked,
+    show_industry: document.getElementById("set-ind").checked,
+    daily_time: document.getElementById("set-time").value.trim() || null,
+    model: document.getElementById("set-model").value || null
+  };
+  var msg = document.getElementById("set-msg");
+  if (msg) msg.textContent = "保存中…";
+  try {
+    var res = await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    var j = await res.json();
+    if (msg) msg.textContent = (j.msg || "已保存") + " · 自动保存";
+    _morning_cache_bust();
+  } catch(e) {
+    if (msg) msg.textContent = "保存失败，检查服务是否在运行";
+  }
+}
+async function addDevice(){
+  var b = document.getElementById("dev-brand").value.trim();
+  var m = document.getElementById("dev-model").value.trim();
+  var g = parseFloat(document.getElementById("dev-grams").value);
+  if (!m) return;
+  var dev = {brand:b||"未标注品牌", model:m};
+  if (!isNaN(g) && g > 0) dev.grams = g;
+  var res = await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({add_device:dev})});
+  var j = await res.json();
+  document.getElementById("set-msg").textContent = j.msg || "已添加";
+  document.getElementById("dev-brand").value = ""; document.getElementById("dev-model").value = "";
+  document.getElementById("dev-grams").value = "";
+  loadSettings();
+}
+async function delDevice(i){
+  var res = await fetch("/api/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({remove_device:i})});
+  var j = await res.json();
+  document.getElementById("set-msg").textContent = j.msg || "已删除";
+  loadSettings();
+}
+function _morning_cache_bust(){ morningFull = morningFull; }
+let _curTheme = {mode:"dark", scheme:"薄荷绿·黄绿"};
+async function loadThemeUI(){
+  var s = await (await fetch("/api/schemes")).json();
+  var t = await (await fetch("/api/theme")).json();
+  _curTheme = t;
+  var g = document.getElementById("scheme-grid");
+  g.innerHTML = s.order.map(function(name){
+    var c = s.colors[name];
+    var on = name === t.scheme;
+    // 选中态用该方案自己的颜色点亮，不跟随全局 accent
+    var ring = on ? "box-shadow:0 0 0 2px " + c[0] + ",0 0 12px " + c[0] + "99;" : "box-shadow:none;";
+    var pie = "background:conic-gradient(" + c[0] + " 0 120deg," + c[1] + " 120deg 240deg," + c[2] + " 240deg 360deg);" + ring;
+    return "<div style='width:58px;text-align:center;cursor:pointer' onclick=\"pickScheme('" + name + "')\">" +
+      "<div style='" + pie + "width:30px;height:30px;border-radius:50%;margin:0 auto 4px;border:0;opacity:" + (on ? "1" : ".55") + "'></div>" +
+      "<div style='font-size:9px;color:" + (on ? c[0] : "var(--t3)") + ";line-height:1.3;" + (on ? "font-weight:700" : "") + "'>" + esc(name) + "</div></div>";
+  }).join("");
+  var bd = document.getElementById("th-dark"), bl = document.getElementById("th-light");
+  bd.className = "anch" + (t.mode === "dark" ? " on" : "");
+  bl.className = "anch" + (t.mode === "light" ? " on" : "");
+}
+async function setTheme(mode){
+  await fetch("/api/theme",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:mode})});
+  applyTheme();
+  loadThemeUI();
+}
+async function pickScheme(name){
+  await fetch("/api/theme",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scheme:name})});
+  applyTheme();
+  loadThemeUI();
+}
+async function applyTheme(){
+  document.getElementById("themecss").href = "/api/theme.css?v=" + Date.now();
+}
+var _initAnchor = document.getElementById("anchor");
+if (_initAnchor) _initAnchor.classList.add("show");
+trace("boot " + APP_VER);
+fetch("/api/morning/prime", {method:"POST"});  // 后台预热晨报
+loadItems("today");
+</script>
+</body></html>

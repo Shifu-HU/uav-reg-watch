@@ -1,0 +1,124 @@
+app:
+  name: 无人机新规雷达
+  version: 0.1.0
+  data_dir: data
+location:
+  city: 深圳
+  province: 广东
+  keep_national: true
+  also_keep: []
+  district: ''
+sources:
+  caac:
+    enabled: true
+    base: https://www.caac.gov.cn
+    channels:
+    - name: 法律法规
+      url: https://www.caac.gov.cn/XXGK/XXGK/FLFG/
+    - name: 政策发布解读
+      url: https://www.caac.gov.cn/XXGK/XXGK/ZCFBJD/
+    - name: 通知公告
+      url: https://www.caac.gov.cn/XXGK/XXGK/TZTG/
+    - name: 部门规章
+      url: https://www.caac.gov.cn/XXGK/XXGK/BMGZ/
+    - name: 规范性文件
+      url: https://www.caac.gov.cn/XXGK/XXGK/GFXWJ/
+    - name: 行业标准
+      url: https://www.caac.gov.cn/XXGK/XXGK/BZGF/HYBZ/
+    - name: 意见征集
+      url: https://www.caac.gov.cn/HDJL/YJZJ/
+    - name: 民航要闻
+      url: https://www.caac.gov.cn/XWZX/MHYW/
+    max_pages: 5
+    timeout: 20
+  searxng:
+    enabled: false
+    base_url: http://127.0.0.1:8080
+    fallbacks: []
+    timeout: 25
+    queries:
+    - 无人机 新规
+    - 无人驾驶航空器 管理规定
+    - 民用无人机 飞行管理
+    - 无人机 禁飞区 划定
+    - 无人机 实名登记 规定
+    - 无人机 驾驶员 执照 新规
+    - 低空经济 政策 无人机
+    - 无人机 空域 管理办法
+    - 无人机 处罚 条例
+    - 民航局 无人机 通知
+    - APEC 无人机 禁飞
+    - '{city} 大型活动 无人机 管制'
+    - '{city} 峰会 禁飞 通告'
+    time_range: day
+    engines: bing
+  bing:
+    enabled: true
+    timeout: 20
+    queries:
+    - 无人机 新规 site:caac.gov.cn
+    - 无人驾驶航空器 管理规定 site:caac.gov.cn
+    - 无人机 禁飞 site:caac.gov.cn
+    - 无人机 site:gov.cn 通告
+    - '{city} 无人机 禁飞 通告'
+    - '{city} 无人驾驶航空器 飞行管理'
+    - '{city} 低空 管制 公安'
+    - '{province} 无人机 禁飞 通告'
+    - '{city} APEC 禁飞'
+    - '{city} 全运会 禁飞 无人机'
+    - 无人机 新规 site:xinhuanet.com
+    - 无人机 管理规定 site:people.com.cn
+    - 无人机 民航局 site:news.cn
+    - 无人驾驶航空器 管理规定 最新
+    - 无人机 飞行 新政策
+    max_pages: 3
+  local:
+    enabled: true
+    max_pages: 2
+    sites: []
+llm:
+  provider: ollama
+  host: http://127.0.0.1:11434
+  model: uav-reg
+  fallback_models:
+  - qwen3:4b
+  - qwen3:8b
+  concurrency: 2
+  timeout: 90
+  think: false
+  summary_max_chars: 120
+crawler:
+  third_party_ratio: 0.1
+  verify_sources: true
+  verify_limit: 12
+  enrich_limit: 12
+  llm_check: true
+  llm_check_limit: 20
+dedup:
+  title_similarity: 0.86
+  content_hash_chars: 2000
+schedule:
+  daily_time: 07:30
+  min_daily_items: 0
+  max_items_per_run: 600
+  catchup_after_hours: 20
+  request_delay: 0.15
+notify:
+  desktop: true
+  brief_dir: data/briefs
+  brief_format: both
+filter:
+  show_industry: false
+brief:
+  show_common: false
+appearance:
+  style: mine
+  mode: dark
+  scheme: 薄荷绿·黄绿
+devices:
+- brand: 大疆 DJI
+  series: Mini 系列（微型）
+  model: Mini 5 Pro
+  grams: 310.0
+  level: 轻型
+  name: 大疆 Mini 5 Pro
