@@ -7,7 +7,7 @@ location:
   province: 广东
   keep_national: true
   also_keep: []
-  district: ''
+  district: 全部
 sources:
   caac:
     enabled: true
@@ -112,9 +112,9 @@ filter:
 brief:
   show_common: false
 appearance:
-  style: mine
+  style: Fusion
   mode: dark
-  scheme: 薄荷绿·黄绿
+  scheme: 奶油米·肉粉
 devices:
 - brand: 大疆 DJI
   series: Mini 系列（微型）
@@ -122,3 +122,9 @@ devices:
   grams: 310.0
   level: 轻型
   name: 大疆 Mini 5 Pro
+- brand: 大疆 DJI
+  series: Lito 系列
+  model: Lito 1
+  grams: 249.0
+  level: 微型
+  name: 大疆 Lito 1
