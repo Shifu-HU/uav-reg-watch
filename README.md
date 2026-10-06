@@ -64,8 +64,7 @@ The sidebar has five pages: **Feed** (daily rules), **Brief** (the day's HTML br
 and **Settings**.
 
 Colour schemes and dark/light mode apply instantly in Settings; the morning brief
-follows the same theme. The desktop and Android editions keep separate databases —
-they crawl independently and do not sync.
+follows the same theme.
 
 ## Configuration (config.yaml)
 
@@ -138,7 +137,6 @@ via llama.cpp (`libllamaserver.so`).
 | First open is slow / looks frozen | The desktop is building the baseline, the phone is extracting the model — let it finish |
 | Missed the 07:30 run | It catches up automatically on the first open of the day |
 | No Ollama installed | Works fine; summaries/categories degrade to rule-based parsing |
-| Do phone and PC sync? | No — the two editions crawl independently |
 | A local rule is missing | Check the Filtered page first; then verify the location setting and the registered device's weight class |
 
 ## License
