@@ -26,3 +26,6 @@ Thumbs.db
 
 # archify 检查产物 sidecar
 docs/*.visual-check.*
+
+# Release 打包产物（仅上传用，不入库）
+_release/
